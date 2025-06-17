@@ -1,6 +1,6 @@
-# SSH Over Tor 
+# oSSH
 
-This project provides a Bash script to set up an SSH server over Tor. It allows users to securely connect to their server using SSH while maintaining anonymity through Tor.
+This project provides a Bash script to set up an SSH server over Tor. It allows users to securely connect to their server using SSH while maintaining anonymity through Tor. This project is inspired from [this](https://github.com/juhanurmi/stealth-ssh/).
 
 ## Prerequisites
 

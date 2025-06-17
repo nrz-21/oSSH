@@ -7,7 +7,7 @@ BLUE='\033[34m'
 MAGENTA='\033[35m'
 CYAN='\033[36m'
 RESET='\033[0m'
-
+HIDDENDIR='ssh' # Replace with "HIDDENDIR=$(< /dev/urandom tr -dc a-z0-9 | head -c5)" If you want to create a new hidden directory (meaning a new server) everytime you run this script.
 # Thank you figlet.
 ascii() {
     colors=("$RED" "$GREEN" "$YELLOW" "$BLUE" "$MAGENTA" "$CYAN")
@@ -73,13 +73,13 @@ main() {
     # Don't forget to install the dependencies
     check_dependencies
     # Set permissions
-    mkdir -p /var/lib/tor/ssh/
-    chown -R tor:tor /var/lib/tor/ssh/
-    chmod 0700 /var/lib/tor/ssh/
+    mkdir -p /var/lib/tor/${HIDDENDIR}/
+    chown -R tor:tor /var/lib/tor/${HIDDENDIR}/
+    chmod 0700 /var/lib/tor/${HIDDENDIR}/
 
     # Configure the hidden service
     
-    echo -e "\n#SSH connections.\nHiddenServiceDir /var/lib/tor/ssh/\nHiddenServicePort 22 127.0.0.1:51984" >> /etc/tor/torrc
+    echo -e "\n#SSH connections.\nHiddenServiceDir /var/lib/tor/${HIDDENDIR}/\nHiddenServicePort 22 127.0.0.1:51984" >> /etc/tor/torrc
 
     # Replace all occurrences of 22 with 51984: 
     sed -i 's/Port 22/Port 51984/g' /etc/ssh/sshd_config
@@ -105,7 +105,7 @@ main() {
     esac
 
 
-    echo "${GREEN}Everything's done! Here is your server's onion link: $(cat /var/lib/tor/ssh/hostname)${RESET}"
+    echo "${GREEN}Everything's done! Here is your server's onion link: $(cat /var/lib/tor/${HIDDENDIR}/hostname)${RESET}"
 }
 
 main

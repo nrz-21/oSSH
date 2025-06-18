@@ -1,6 +1,6 @@
 # oSSH
 
-This project provides a Bash script to set up an SSH server over Tor. It allows users to securely connect to their server using SSH while maintaining anonymity through Tor. This project is inspired from [this](https://github.com/juhanurmi/stealth-ssh/).
+This project provides a Bash script to set up an SSH server over Tor. It allows users to securely connect to their server using SSH while maintaining anonymity through Tor. This project is inspired from [this](https://github.com/juhanurmi/stealth-ssh/) repo.
 
 ## Prerequisites
 
@@ -13,13 +13,13 @@ Before running the script, make sure that you have the following installed on yo
 
 1. **Clone the Repository**:
    ```bash
-   git clone https://codeberg.org/nexus-r21/oSSH/
+   git clone https://github.com/nrz-21/oSSH
    cd oSSH
    ```
 
 2. **Run the Script**:
    ```bash
-   sudo ./main.sh
+   sudo ./main.sh --create
    ```
 
 ## Important

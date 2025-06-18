@@ -1,5 +1,4 @@
 #!/bin/bash
-
 RED='\033[31m'
 GREEN='\033[32m'
 YELLOW='\033[33m'
@@ -7,7 +6,11 @@ BLUE='\033[34m'
 MAGENTA='\033[35m'
 CYAN='\033[36m'
 RESET='\033[0m'
-HIDDENDIR='ssh' # Replace with "HIDDENDIR=$(< /dev/urandom tr -dc a-z0-9 | head -c5)" If you want to create a new hidden directory (meaning a new server) everytime you run this script.
+
+
+TORDIR="tor"
+TORCONFIG="torrc" # Name of your tor config file.
+HIDDENDIR="ssh" # Replace with "HIDDENDIR=$(< /dev/urandom tr -dc a-z0-9 | head -c5)" If you want to create a new hidden directory (meaning a new server) everytime you run this script.
 # Thank you figlet.
 ascii() {
     colors=("$RED" "$GREEN" "$YELLOW" "$BLUE" "$MAGENTA" "$CYAN")
@@ -68,21 +71,34 @@ setup_authkeys() {
     # echo "descriptor:x25519:$pub_key" >> /var/lib/tor/ssh/authorized_clients/device.auth 
     ## NOTE: This works fine and sets up the server, but the client needs to be configured by the user themselves so read the guide!
 }
-main() {
-    ascii
-    # Don't forget to install the dependencies
+# Function to remove the hidden service.
+del() {
+    rm -rf /var/lib/${TORDIR}/${HIDDENDIR}/
+    sed -i "/#SSH connections./d; /HiddenServiceDir \/var\/lib\/${TORDIR}\/${HIDDENDIR}\//d; /HiddenServicePort 22 127.0.0.1:51984/d" /etc/tor/${TORCONFIG}
+    restart_services
+    echo -e "${GREEN}Successfull.${RESET}"
+
+}
+# Function to create the SSH server
+ssh() {
     check_dependencies
+    # Check If the hidden directory already exists.
+    if [ -d "/var/lib/${TORDIR}/${HIDDENDIR}" ]; then 
+        echo -e "${RED}The hidden directory ${HIDDENDIR} already exists.${RESET}" 
+        exit 1
+    fi 
+
     # Set permissions
-    mkdir -p /var/lib/tor/${HIDDENDIR}/
-    chown -R tor:tor /var/lib/tor/${HIDDENDIR}/
-    chmod 0700 /var/lib/tor/${HIDDENDIR}/
+    mkdir -p /var/lib/${TORDIR}/${HIDDENDIR}/
+    chown -R tor:tor /var/lib/${TORDIR}/${HIDDENDIR}/
+    chmod 0700 /var/lib/${TORDIR}/${HIDDENDIR}/
 
     # Configure the hidden service
     
-    echo -e "\n#SSH connections.\nHiddenServiceDir /var/lib/tor/${HIDDENDIR}/\nHiddenServicePort 22 127.0.0.1:51984" >> /etc/tor/torrc
+    echo -e "\n#SSH connections.\nHiddenServiceDir /var/lib/${TORDIR}/${HIDDENDIR}/\nHiddenServicePort 22 127.0.0.1:51984" >> /etc/tor/${TORCONFIG}
 
-    # Replace all occurrences of 22 with 51984: 
-    sed -i 's/Port 22/Port 51984/g' /etc/ssh/sshd_config
+    # Replace all occurrences of 22 with 51984.
+    sed -i "s/Port 22/Port 51984/g" /etc/ssh/sshd_config
     restart_services
 
     # Setting up an authentication method
@@ -90,22 +106,57 @@ main() {
                  [${YELLOW}0${RESET}] ${MAGENTA}Password${RESET}
                  [${YELLOW}1${RESET}] ${MAGENTA}Keys [Recommended]${RESET}"
 
-    read -p "Enter your choice: " method
+    while true; do
+        read -p "Enter your choice: " method
+        case $method in
+            0) passwd; break;;
+            1) setup_authkeys; break;;
+            *) echo "Invalid selection. Please enter 0 or 1.";;
+        esac
+    done
 
-    case $method in
-        0)
-            passwd
-            ;;
-        1)
-            setup_authkeys
-            ;;
-        *)
-            echo "Invalid selection. Please enter 0 or 1."
-            ;;
-    esac
-
-
-    echo "${GREEN}Everything's done! Here is your server's onion link: $(cat /var/lib/tor/${HIDDENDIR}/hostname)${RESET}"
+    HOSTNAME=$(cat /var/lib/${TORDIR}/${HIDDENDIR}/hostname)
+    echo -e "${GREEN}Everything's done! Here is your server's onion link: $(cat /var/lib/${TORDIR}/${HIDDENDIR}/hostname)${RESET}\n"
+    echo -e "${GREEN}You can SSH into it using the command${RESET} ${CYAN}torsocks -p {PORT} ssh ${HOSTNAME}${RESET}${GREEN} or add this to your ${HOME}/.ssh/config${RESET}${CYAN}\nHost hidden\nHostname ${HOSTNAME}\nProxyCommand /usr/bin/nc -x localhost:9050 %h %p${RESET}\n${GREEN}You can then ssh into it using the command 'ssh hidden'.\n${RESET}"
+}
+main() {
+    if [ "$EUID" -ne 0 ]; then 
+        echo -e "${RED}Please run as root.${RESET}"
+        exit 1
+    fi
+    ascii
+    TEMP=$(getopt -o d:c:h: --long create,del,directory:,config:,hiddendir: -- "$@")
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}Failed to parse options.${RESET}"
+        exit 1
+    fi
+    eval set -- "$TEMP"
+    ACTION=""
+    while true; do
+        case "$1" in
+            --create) ACTION="create"; shift ;;
+            --del) ACTION="del"; shift ;;
+            -d|--directory) TORDIR="$2"; shift 2 ;;
+            -c|--config) TORCONFIG="$2"; shift 2 ;;
+            -h|--hiddendir) HIDDENDIR="$2"; shift 2 ;;
+            --) shift; break ;;
+            *) echo -e "${RED}Invalid option: $1${RESET}"; exit 1 ;;
+        esac
+    done
+    if [[ -z "$ACTION" ]]; then
+        echo -e "${RED}Usage: $0 --create | --del [-d dir] [-c conf] [-h hiddendir]${RESET}"
+        exit 1
+    fi
+    if [[ "$ACTION" == "create" ]]; then
+        ssh
+    elif [[ "$ACTION" == "del" ]]; then
+        del
+    else
+        echo -e "${RED}Invalid action specified.${RESET}"
+        exit 1
+    fi
 }
 
-main
+
+
+main "$@"
